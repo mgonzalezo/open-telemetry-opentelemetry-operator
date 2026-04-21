@@ -356,6 +356,9 @@ func TestMultiPortReceiver_Ports(t *testing.T) {
 			startupProbe, startupErr := s.GetStartupProbe(logr.Discard(), tt.args.config)
 			assert.NoError(t, startupErr)
 			assert.Nil(t, startupProbe)
+			envVars, envVarErr := s.GetEnvironmentVariables(logr.Discard(), tt.args.config)
+			assert.NoError(t, envVarErr)
+			assert.Nil(t, envVars)
 		})
 	}
 }

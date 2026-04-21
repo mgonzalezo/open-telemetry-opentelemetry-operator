@@ -12,6 +12,36 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
+func TestGenerateKubeletStatsEnvVars(t *testing.T) {
+	tests := []struct {
+		name   string
+		config kubeletStatsConfig
+	}{
+		{
+			name:   "default config",
+			config: kubeletStatsConfig{},
+		},
+		{
+			name: "with serviceAccount auth type",
+			config: kubeletStatsConfig{
+				AuthType: "serviceAccount",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			envVars, err := generateKubeletStatsEnvVars(logr.Logger{}, tt.config)
+			require.NoError(t, err)
+			require.Len(t, envVars, 1)
+			assert.Equal(t, "K8S_NODE_NAME", envVars[0].Name)
+			require.NotNil(t, envVars[0].ValueFrom)
+			require.NotNil(t, envVars[0].ValueFrom.FieldRef)
+			assert.Equal(t, "spec.nodeName", envVars[0].ValueFrom.FieldRef.FieldPath)
+		})
+	}
+}
+
 func TestGenerateKubeletStatsRbacRules(t *testing.T) {
 	baseRule := rbacv1.PolicyRule{
 		APIGroups: []string{""},

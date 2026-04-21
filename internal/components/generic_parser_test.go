@@ -623,3 +623,83 @@ func TestGenericParser_GetDefaultConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestGenericParser_GetEnvironmentVariables(t *testing.T) {
+	type args struct {
+		logger logr.Logger
+		config any
+	}
+	type testCase[T any] struct {
+		name    string
+		g       *components.GenericParser[T]
+		args    args
+		want    []corev1.EnvVar
+		wantErr assert.ErrorAssertionFunc
+	}
+
+	envVarGenFunc := func(_ logr.Logger, config *components.SingleEndpointConfig) ([]corev1.EnvVar, error) {
+		if config.Endpoint == "" && config.ListenAddress == "" {
+			return nil, errors.New("either endpoint or listen_address must be specified")
+		}
+		return []corev1.EnvVar{
+			{Name: "TEST_VAR", Value: "test_value"},
+		}, nil
+	}
+
+	tests := []testCase[*components.SingleEndpointConfig]{
+		{
+			name: "with env var generator and valid config",
+			g:    components.NewSinglePortParserBuilder("test", 0).WithEnvVarGen(envVarGenFunc).MustBuild(),
+			args: args{
+				logger: logr.Discard(),
+				config: map[string]any{
+					"endpoint": "http://localhost:8080",
+				},
+			},
+			want: []corev1.EnvVar{
+				{Name: "TEST_VAR", Value: "test_value"},
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "with env var generator and invalid config",
+			g:    components.NewSinglePortParserBuilder("test", 0).WithEnvVarGen(envVarGenFunc).MustBuild(),
+			args: args{
+				logger: logr.Discard(),
+				config: map[string]any{},
+			},
+			want:    nil,
+			wantErr: assert.Error,
+		},
+		{
+			name: "without env var generator returns nil",
+			g:    components.NewSinglePortParserBuilder("test", 0).MustBuild(),
+			args: args{
+				logger: logr.Discard(),
+				config: map[string]any{},
+			},
+			want:    nil,
+			wantErr: assert.NoError,
+		},
+		{
+			name: "failed to parse config",
+			g:    components.NewSinglePortParserBuilder("test", 0).WithEnvVarGen(envVarGenFunc).MustBuild(),
+			args: args{
+				logger: logr.Discard(),
+				config: func() {},
+			},
+			want:    nil,
+			wantErr: assert.Error,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.g.GetEnvironmentVariables(tt.args.logger, tt.args.config)
+			if !tt.wantErr(t, err, fmt.Sprintf("GetEnvironmentVariables(%v, %v)", tt.args.logger, tt.args.config)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "GetEnvironmentVariables(%v, %v)", tt.args.logger, tt.args.config)
+		})
+	}
+}

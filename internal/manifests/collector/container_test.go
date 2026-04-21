@@ -4,6 +4,7 @@
 package collector
 
 import (
+	"os"
 	"testing"
 
 	go_yaml "github.com/goccy/go-yaml"
@@ -20,6 +21,14 @@ import (
 	"github.com/open-telemetry/opentelemetry-operator/pkg/constants"
 	"github.com/open-telemetry/opentelemetry-operator/pkg/featuregate"
 )
+
+func clearProxyEnvVars(t *testing.T) {
+	t.Helper()
+	for _, v := range []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"} {
+		t.Setenv(v, "")
+		os.Unsetenv(v)
+	}
+}
 
 var metricContainerPort = corev1.ContainerPort{
 	Name:          "metrics",
@@ -492,6 +501,7 @@ func TestContainerCustomSecurityContext(t *testing.T) {
 }
 
 func TestContainerEnvVarsOverridden(t *testing.T) {
+	clearProxyEnvVars(t)
 	otelcol := v1beta1.OpenTelemetryCollector{
 		Spec: v1beta1.OpenTelemetryCollectorSpec{
 			OpenTelemetryCommonFields: v1beta1.OpenTelemetryCommonFields{
@@ -520,6 +530,7 @@ func TestContainerEnvVarsOverridden(t *testing.T) {
 }
 
 func TestContainerDefaultEnvVars(t *testing.T) {
+	clearProxyEnvVars(t)
 	otelcol := v1beta1.OpenTelemetryCollector{
 		Spec: v1beta1.OpenTelemetryCollectorSpec{},
 	}
@@ -1244,6 +1255,7 @@ service:
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			clearProxyEnvVars(t)
 			registry := colfg.GlobalRegistry()
 			if test.enableSetGolangFlags {
 				originalVal := featuregate.SetGolangFlags.IsEnabled()
